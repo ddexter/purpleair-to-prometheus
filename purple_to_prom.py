@@ -23,7 +23,7 @@
 
 import time
 import traceback
-from typing import List
+from typing import List, Optional
 
 import aqi
 import json
@@ -69,30 +69,39 @@ def clear_metrics():
       g._metrics.clear()
 
 
-def check_sensor(parent_sensor_id: str) -> None:
-  resp = requests.get(
-    "https://www.purpleair.com/json?show={}".format(parent_sensor_id))
-  if resp.status_code != 200:
+def check_sensor(read_api_key: str, parent_sensor_id: str,
+    private_sensor_key: Optional[str] = None) -> None:
+  resp = None
+  if private_sensor_key is not None:
+    resp = requests.get(
+        "https://api.purpleair.com/v1/sensors/{}?read_key={}".format(
+          parent_sensor_id, private_sensor_key),
+        headers={"X-API-Key": read_api_key})
+  else:
+    resp = requests.get(
+        "https://api.purpleair.com/v1/sensors/{}".format(parent_sensor_id),
+        headers={"X-API-Key": read_api_key})
+  if resp.status_code < 200 or resp.status_code > 299:
     clear_metrics()
     raise Exception(
-      "got {} responde code from purpleair".format(resp.status_code))
+        "got {} responde code from purpleair".format(resp.status_code))
 
   try:
     resp_json = resp.json()
   except ValueError:
     clear_metrics()
     raise
-  for sensor in resp_json.get("results"):
-    sensor_id = sensor.get("ID")
-    name = sensor.get("Label")
-    stats = sensor.get("Stats")
-    temp_f = sensor.get("temp_f")
+  for sensor in resp_json.get("sensor"):
+    sensor_id = sensor.get("sensor_index")
+    name = sensor.get("name")
+    stats = sensor.get("stats")
+    temp_f = sensor.get("temperature")
     humidity = sensor.get("humidity")
     pressure = sensor.get("pressure")
     try:
       if stats:
         stats = json.loads(stats)
-        pm25_10min_raw = stats.get("v1")
+        pm25_10min_raw = stats.get("pm2.5_10minute")
         if pm25_10min_raw:
           pm25_10min = max(float(pm25_10min_raw), 0)
           i_aqi = aqi.to_iaqi(aqi.POLLUTANT_PM25, str(pm25_10min),
@@ -167,7 +176,12 @@ def main():
   parser = argparse.ArgumentParser(
       description="Gets sensor data from purple air, converts it to AQI, and exports it to prometheus"
   )
+  parser.add_argument('--read-api-key', type=str, help="The API read key",
+                      required=True)
   parser.add_argument('--sensor-ids', nargs="+", help="Sensors to collect from",
+                      required=True)
+  parser.add_argument('--private-sensor-ids', nargs="+",
+                      help="Private sensor ids.  The number of private ids must correspond to the number of sensor ids.  Use 'None' if the corresponding sensor in sensor-ids is public.",
                       required=True)
   parser.add_argument("--port", type=int,
                       help="What port to serve prometheus metrics on",
