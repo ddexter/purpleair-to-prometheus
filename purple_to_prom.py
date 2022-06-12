@@ -57,6 +57,10 @@ pressure_g = prometheus_client.Gauge(
     'purpleair_pressure_mb', 'Sensor pressure reading (millibars)',
     ['parent_sensor_id', 'sensor_id', 'sensor_name']
 )
+timestamp_g = prometheus_client.Gauge(
+    'purpleair_measurement_timestamp', 'Sensor timestamp',
+    ['parent_sensor_id', 'sensor_id', 'sensor_name']
+)
 
 
 def clear_metrics():
@@ -92,6 +96,7 @@ def check_sensor(read_api_key: str, parent_sensor_id: str,
     clear_metrics()
     raise
 
+  timestamp = resp_json["time_stamp"]
   sensor = resp_json["sensor"]
   sensor_id = sensor["sensor_index"]
   name = sensor["name"]
@@ -106,6 +111,12 @@ def check_sensor(read_api_key: str, parent_sensor_id: str,
         pm25_10min = max(float(pm25_10min_raw), 0)
         i_aqi = aqi.to_iaqi(aqi.POLLUTANT_PM25, str(pm25_10min),
                             algo=aqi.ALGO_EPA)
+
+        timestamp_g.labels(
+            parent_sensor_id=parent_sensor_id, sensor_id=sensor_id,
+            sensor_name=name
+        ).set(float(timestamp))
+
         aqi_g.labels(
             parent_sensor_id=parent_sensor_id, sensor_id=sensor_id,
             sensor_name=name
@@ -197,12 +208,13 @@ def main():
 
   if len(args.sensor_ids) != len(args.private_sensor_ids):
     raise Exception(
-      "sensor-ids must have same number of ids as private-sensor-ids.\nsensor-ids:{}\nprivate-sensor-ids:{}")
+        "sensor-ids must have same number of ids as private-sensor-ids.\nsensor-ids:{}\nprivate-sensor-ids:{}")
 
   prometheus_client.start_http_server(args.port)
 
   print("Serving prometheus metrics on {}/metrics".format(args.port))
-  poll(args.read_api_key, args.sensor_ids, args.private_sensor_ids, args.refresh_seconds)
+  poll(args.read_api_key, args.sensor_ids, args.private_sensor_ids,
+       args.refresh_seconds)
 
 
 if __name__ == "__main__":
