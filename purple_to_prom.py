@@ -91,72 +91,72 @@ def check_sensor(read_api_key: str, parent_sensor_id: str,
   except ValueError:
     clear_metrics()
     raise
-  for sensor in resp_json.get("sensor"):
-    sensor_id = sensor.get("sensor_index")
-    name = sensor.get("name")
-    stats = sensor.get("stats")
-    temp_f = sensor.get("temperature")
-    humidity = sensor.get("humidity")
-    pressure = sensor.get("pressure")
+
+  sensor = resp_json["sensor"]
+  sensor_id = sensor["sensor_index"]
+  name = sensor["name"]
+  stats = sensor["stats"]
+  temp_f = sensor['temperature']
+  humidity = sensor["humidity"]
+  pressure = sensor["pressure"]
+  try:
+    if stats:
+      pm25_10min_raw = stats["pm2.5_10minute"]
+      if pm25_10min_raw:
+        pm25_10min = max(float(pm25_10min_raw), 0)
+        i_aqi = aqi.to_iaqi(aqi.POLLUTANT_PM25, str(pm25_10min),
+                            algo=aqi.ALGO_EPA)
+        aqi_g.labels(
+            parent_sensor_id=parent_sensor_id, sensor_id=sensor_id,
+            sensor_name=name
+        ).set(i_aqi)
+
+        # https://www.aqandu.org/airu_sensor#calibrationSection
+        pm25_10min_AQandU = 0.778 * float(pm25_10min) + 2.65
+        i_aqi_AQandU = aqi.to_iaqi(aqi.POLLUTANT_PM25, str(pm25_10min_AQandU),
+                                   algo=aqi.ALGO_EPA)
+        aqi_AQandU_g.labels(
+            parent_sensor_id=parent_sensor_id, sensor_id=sensor_id,
+            sensor_name=name
+        ).set(i_aqi_AQandU)
+
+        # https://www.lrapa.org/DocumentCenter/View/4147/PurpleAir-Correction-Summary
+        pm25_10min_LRAPA = max(0.5 * float(pm25_10min) - 0.66, 0)
+        i_aqi_LRAPA = aqi.to_iaqi(aqi.POLLUTANT_PM25, str(pm25_10min_LRAPA),
+                                  algo=aqi.ALGO_EPA)
+        aqi_LRAPA_g.labels(
+            parent_sensor_id=parent_sensor_id, sensor_id=sensor_id,
+            sensor_name=name
+        ).set(i_aqi_LRAPA)
+
+      if temp_f:
+        temp_g.labels(
+            parent_sensor_id=parent_sensor_id, sensor_id=sensor_id,
+            sensor_name=name
+        ).set(float(temp_f))
+      if pressure:
+        pressure_g.labels(
+            parent_sensor_id=parent_sensor_id, sensor_id=sensor_id,
+            sensor_name=name
+        ).set(float(pressure))
+      if humidity:
+        humidity_g.labels(
+            parent_sensor_id=parent_sensor_id, sensor_id=sensor_id,
+            sensor_name=name
+        ).set(float(humidity))
+  except Exception:
     try:
-      if stats:
-        stats = json.loads(stats)
-        pm25_10min_raw = stats.get("pm2.5_10minute")
-        if pm25_10min_raw:
-          pm25_10min = max(float(pm25_10min_raw), 0)
-          i_aqi = aqi.to_iaqi(aqi.POLLUTANT_PM25, str(pm25_10min),
-                              algo=aqi.ALGO_EPA)
-          aqi_g.labels(
-              parent_sensor_id=parent_sensor_id, sensor_id=sensor_id,
-              sensor_name=name
-          ).set(i_aqi)
-
-          # https://www.aqandu.org/airu_sensor#calibrationSection
-          pm25_10min_AQandU = 0.778 * float(pm25_10min) + 2.65
-          i_aqi_AQandU = aqi.to_iaqi(aqi.POLLUTANT_PM25, str(pm25_10min_AQandU),
-                                     algo=aqi.ALGO_EPA)
-          aqi_AQandU_g.labels(
-              parent_sensor_id=parent_sensor_id, sensor_id=sensor_id,
-              sensor_name=name
-          ).set(i_aqi_AQandU)
-
-          # https://www.lrapa.org/DocumentCenter/View/4147/PurpleAir-Correction-Summary
-          pm25_10min_LRAPA = max(0.5 * float(pm25_10min) - 0.66, 0)
-          i_aqi_LRAPA = aqi.to_iaqi(aqi.POLLUTANT_PM25, str(pm25_10min_LRAPA),
-                                    algo=aqi.ALGO_EPA)
-          aqi_LRAPA_g.labels(
-              parent_sensor_id=parent_sensor_id, sensor_id=sensor_id,
-              sensor_name=name
-          ).set(i_aqi_LRAPA)
-
-        if temp_f:
-          temp_g.labels(
-              parent_sensor_id=parent_sensor_id, sensor_id=sensor_id,
-              sensor_name=name
-          ).set(float(temp_f))
-        if pressure:
-          pressure_g.labels(
-              parent_sensor_id=parent_sensor_id, sensor_id=sensor_id,
-              sensor_name=name
-          ).set(float(pressure))
-        if humidity:
-          humidity_g.labels(
-              parent_sensor_id=parent_sensor_id, sensor_id=sensor_id,
-              sensor_name=name
-          ).set(float(humidity))
-    except Exception:
-      try:
-        # Stop exporting metrics, instead of showing as a flat line.
-        aqi_g.remove(parent_sensor_id, sensor_id, name)
-        aqi_AQandU_g.remove(parent_sensor_id, sensor_id, name)
-        aqi_LRAPA_g.remove(parent_sensor_id, sensor_id, name)
-        temp_g.remove(parent_sensor_id, sensor_id, name)
-        pressure_g.remove(parent_sensor_id, sensor_id, name)
-        humidity_g.remove(parent_sensor_id, sensor_id, name)
-      except KeyError:
-        # No data produced yet. Silently ignore it.
-        pass
-      raise
+      # Stop exporting metrics, instead of showing as a flat line.
+      aqi_g.remove(parent_sensor_id, sensor_id, name)
+      aqi_AQandU_g.remove(parent_sensor_id, sensor_id, name)
+      aqi_LRAPA_g.remove(parent_sensor_id, sensor_id, name)
+      temp_g.remove(parent_sensor_id, sensor_id, name)
+      pressure_g.remove(parent_sensor_id, sensor_id, name)
+      humidity_g.remove(parent_sensor_id, sensor_id, name)
+    except KeyError:
+      # No data produced yet. Silently ignore it.
+      pass
+    raise
 
 
 def poll(sensor_ids: List[str], refresh_seconds: int) -> None:
