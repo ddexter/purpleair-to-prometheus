@@ -75,7 +75,7 @@ def check_sensor(read_api_key: str, parent_sensor_id: str,
   if private_sensor_key is not None:
     resp = requests.get(
         "https://api.purpleair.com/v1/sensors/{}?read_key={}".format(
-          parent_sensor_id, private_sensor_key),
+            parent_sensor_id, private_sensor_key),
         headers={"X-API-Key": read_api_key})
   else:
     resp = requests.get(
@@ -159,12 +159,17 @@ def check_sensor(read_api_key: str, parent_sensor_id: str,
     raise
 
 
-def poll(sensor_ids: List[str], refresh_seconds: int) -> None:
+def poll(read_api_key: str, sensor_ids: List[str],
+    private_sensor_ids: List[str], refresh_seconds: int) -> None:
+  ids = zip(sensor_ids, private_sensor_ids)
   while True:
     print("refreshing sensors...", flush=True)
-    for sensor_id in sensor_ids:
+    for zipped_ids in ids:
       try:
-        check_sensor(sensor_id)
+        if zipped_ids[1] == 'None':
+          check_sensor(read_api_key, zipped_ids[0], None)
+        else:
+          check_sensor(read_api_key, zipped_ids[0], zipped_ids[1])
       except Exception:
         traceback.print_exc()
         print("Error fetching sensor data, sleeping till next poll")
@@ -189,6 +194,10 @@ def main():
   parser.add_argument("--refresh-seconds", type=int,
                       help="How often to refresh", default=60)
   args = parser.parse_args()
+
+  if len(args.sensor_ids) != len(args.private_sensor_ids):
+    raise Exception(
+      "sensor-ids must have same number of ids as private-sensor-ids.\nsensor-ids:{}\nprivate-sensor-ids:{}")
 
   prometheus_client.start_http_server(args.port)
 
