@@ -172,7 +172,7 @@ def check_sensor(read_api_key: str, parent_sensor_id: str,
 
 def poll(read_api_key: str, sensor_ids: List[str],
     private_sensor_ids: List[str], refresh_seconds: int) -> None:
-  ids = zip(sensor_ids, private_sensor_ids)
+  ids = list(zip(sensor_ids, private_sensor_ids))
   while True:
     print("refreshing sensors...", flush=True)
     for zipped_ids in ids:
