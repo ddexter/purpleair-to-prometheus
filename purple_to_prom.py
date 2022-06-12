@@ -202,7 +202,7 @@ def main():
   prometheus_client.start_http_server(args.port)
 
   print("Serving prometheus metrics on {}/metrics".format(args.port))
-  poll(args.sensor_ids, args.refresh_seconds)
+  poll(args.read_api_key, args.sensor_ids, args.private_sensor_ids, args.refresh_seconds)
 
 
 if __name__ == "__main__":
