@@ -100,9 +100,9 @@ def check_sensor(read_api_key: str, parent_sensor_id: str,
   humidity = sensor["humidity"]
   pressure = sensor["pressure"]
   try:
-    if stats:
+    if stats is not None:
       pm25_10min_raw = stats["pm2.5_10minute"]
-      if pm25_10min_raw:
+      if pm25_10min_raw is not None:
         pm25_10min = max(float(pm25_10min_raw), 0)
         i_aqi = aqi.to_iaqi(aqi.POLLUTANT_PM25, str(pm25_10min),
                             algo=aqi.ALGO_EPA)
@@ -129,17 +129,17 @@ def check_sensor(read_api_key: str, parent_sensor_id: str,
             sensor_name=name
         ).set(i_aqi_LRAPA)
 
-      if temp_f:
+      if temp_f is not None:
         temp_g.labels(
             parent_sensor_id=parent_sensor_id, sensor_id=sensor_id,
             sensor_name=name
         ).set(float(temp_f))
-      if pressure:
+      if pressure is not None:
         pressure_g.labels(
             parent_sensor_id=parent_sensor_id, sensor_id=sensor_id,
             sensor_name=name
         ).set(float(pressure))
-      if humidity:
+      if humidity is not None:
         humidity_g.labels(
             parent_sensor_id=parent_sensor_id, sensor_id=sensor_id,
             sensor_name=name
